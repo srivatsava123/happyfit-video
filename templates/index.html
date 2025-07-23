@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HappyFit - Join Call</title>
+    <!-- ✅ Load Agora Web SDK (use this reliable CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.20.0"></script>
+
+</head>
+<body>
+    <h2>HappyFit Video Call</h2>
+
+    <input id="channelInput" placeholder="Enter channel name" value="test_channel" />
+    <button onclick="joinCall()">Join Call</button>
+
+    <div style="margin-top: 20px;">
+        <div>
+            <strong>Local Video:</strong>
+            <div id="local-video" style="width: 320px; height: 240px; background-color: #ccc;"></div>
+        </div>
+        <div>
+            <strong>Remote Video:</strong>
+            <div id="remote-video" style="width: 320px; height: 240px; background-color: #ddd; margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let client;
+        let localTrack;
+
+        async function joinCall() {
+            console.log("AgoraRTC Loaded:", AgoraRTC);
+
+            if (typeof AgoraRTC === 'undefined') {
+                alert("AgoraRTC SDK not loaded. Check your <script> tag.");
+                return;
+            }
+
+            const channel = document.getElementById("channelInput").value || "demo_channel";
+
+            try {
+                const response = await fetch("/agora/get_token/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ channel_name: channel })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to fetch token");
+                }
+
+                const data = await response.json();
+                console.log("Token Data:", data);
+
+                client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+                await client.join(data.app_id, data.channel_name, data.token, data.uid);
+                console.log("Joined channel");
+
+                localTrack = await AgoraRTC.createCameraVideoTrack();
+                await client.publish([localTrack]);
+                localTrack.play("local-video");
+
+                client.on("user-published", async (user, mediaType) => {
+                    await client.subscribe(user, mediaType);
+                    if (mediaType === "video") {
+                        user.videoTrack.play("remote-video");
+                    }
+                });
+
+                client.on("user-unpublished", (user) => {
+                    console.log("User left:", user.uid);
+                });
+
+            } catch (error) {
+                console.error("Join call failed:", error);
+                alert("Failed to join call. See console for details.");
+            }
+        }
+    </script>
+</body>
+</html>
