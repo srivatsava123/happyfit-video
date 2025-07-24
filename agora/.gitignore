@@ -3,3 +3,4 @@ echo "__pycache__/" >> .gitignore
 echo "venv/" >> .gitignore
 echo "*.pyc" >> .gitignore
 echo "db.sqlite3" >> .gitignore  # if you're using SQLite
+echo "*.pem"

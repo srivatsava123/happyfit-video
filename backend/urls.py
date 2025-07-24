@@ -16,11 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from agora.views import home  # Optional, only if you have a homepage
+from agora.views import home, call_room  # Optional, only if you have a homepage
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('agora/', include('agora.urls')),  # ✅ Includes agora's routes
     path('', home),  # Optional: only if you want to show index.html
+    path('room/<str:channel_name>/', call_room),  # ✅ NEW dynamic room route
+
 ]
 

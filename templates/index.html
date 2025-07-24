@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>HappyFit - Join Call</title>
-    <!-- ✅ Load Agora Web SDK (use this reliable CDN) -->
+    <title>HappyFit - Video Call</title>
     <script src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.20.0"></script>
-
 </head>
 <body>
     <h2>HappyFit Video Call</h2>
 
-    <input id="channelInput" placeholder="Enter channel name" value="test_channel" />
+    <input id="channelInput" placeholder="Enter channel name" value="demo_channel" />
     <button onclick="joinCall()">Join Call</button>
+    <button onclick="leaveCall()" style="margin-left: 10px;">End Call</button>
+    <button onclick="shareScreen()" style="margin-left: 10px;">Share Screen</button>
 
     <div style="margin-top: 20px;">
         <div>
@@ -26,30 +26,21 @@
     <script>
         let client;
         let localTrack;
+        let screenTrack;
+        let isJoined = false;
 
         async function joinCall() {
-            console.log("AgoraRTC Loaded:", AgoraRTC);
-
-            if (typeof AgoraRTC === 'undefined') {
-                alert("AgoraRTC SDK not loaded. Check your <script> tag.");
-                return;
-            }
-
-            const channel = document.getElementById("channelInput").value || "demo_channel";
+            const channel = document.getElementById("channelInput").value;
 
             try {
-                const response = await fetch("/agora/get_token/", {
+                const response = await fetch("/get_token/", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ channel_name: channel })
                 });
 
-                if (!response.ok) {
-                    throw new Error("Failed to fetch token");
-                }
-
                 const data = await response.json();
-                console.log("Token Data:", data);
+                console.log("Token:", data);
 
                 client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
@@ -71,9 +62,52 @@
                     console.log("User left:", user.uid);
                 });
 
-            } catch (error) {
-                console.error("Join call failed:", error);
-                alert("Failed to join call. See console for details.");
+                isJoined = true;
+            } catch (err) {
+                console.error("Join failed:", err);
+                alert("Join failed. See console for details.");
+            }
+        }
+
+        async function leaveCall() {
+            if (!client || !isJoined) return;
+
+            if (localTrack) {
+                localTrack.stop();
+                localTrack.close();
+            }
+
+            if (screenTrack) {
+                screenTrack.stop();
+                screenTrack.close();
+            }
+
+            await client.leave();
+            console.log("Left the channel");
+
+            document.getElementById("local-video").innerHTML = "";
+            document.getElementById("remote-video").innerHTML = "";
+
+            isJoined = false;
+        }
+
+        async function shareScreen() {
+            try {
+                screenTrack = await AgoraRTC.createScreenVideoTrack();
+                await client.unpublish(localTrack);
+                await client.publish(screenTrack);
+                screenTrack.play("local-video");
+
+                screenTrack.on("track-ended", async () => {
+                    await client.unpublish(screenTrack);
+                    screenTrack.close();
+                    localTrack = await AgoraRTC.createCameraVideoTrack();
+                    await client.publish(localTrack);
+                    localTrack.play("local-video");
+                });
+            } catch (err) {
+                console.error("Screen sharing failed:", err);
+                alert("Screen sharing not supported or denied by browser.");
             }
         }
     </script>

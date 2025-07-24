@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HappyFit Call - {{ channel_name }}</title>
+  <script src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.20.0"></script>
+</head>
+<body>
+  <h3>Joined Room: <strong>{{ channel_name }}</strong></h3>
+
+  <div>
+    <div id="local-video" style="width: 320px; height: 240px; background: #ccc;"></div>
+    <div id="remote-video" style="width: 320px; height: 240px; background: #eee; margin-top: 10px;"></div>
+  </div>
+
+  <button onclick="leaveCall()">Leave</button>
+
+  <script>
+    let client;
+    let localTrack;
+
+    async function joinCall() {
+      const channel = "{{ channel_name }}";
+
+      const response = await fetch("/agora/get_token/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel_name: channel })
+      });
+
+      const data = await response.json();
+
+      client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      await client.join(data.app_id, data.channel_name, data.token, data.uid);
+
+      localTrack = await AgoraRTC.createCameraVideoTrack();
+      await client.publish([localTrack]);
+      localTrack.play("local-video");
+
+      client.on("user-published", async (user, mediaType) => {
+        await client.subscribe(user, mediaType);
+        if (mediaType === "video") {
+          user.videoTrack.play("remote-video");
+        }
+      });
+
+      client.on("user-unpublished", (user) => {
+        console.log("User left:", user.uid);
+      });
+    }
+
+    async function leaveCall() {
+      if (localTrack) {
+        localTrack.stop();
+        localTrack.close();
+      }
+      if (client) {
+        await client.leave();
+      }
+      alert("You have left the call.");
+    }
+
+    window.onload = joinCall;
+  </script>
+</body>
+</html>
